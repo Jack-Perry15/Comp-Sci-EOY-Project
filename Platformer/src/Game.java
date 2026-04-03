@@ -7,14 +7,15 @@ import java.util.ArrayList;
 public class Game extends JPanel implements Runnable, KeyListener {
 
     private BufferedImage back;
-
-    // Track multiple keys at once
     private boolean[] keys;
 
     private Player p1;
     private Player p2;
 
     private ArrayList<Rectangle> platforms;
+
+    // 2 second cooldown at ~60 FPS
+    private int tagCooldown;
 
     public Game() {
         keys = new boolean[256];
@@ -23,17 +24,19 @@ public class Game extends JPanel implements Runnable, KeyListener {
         setFocusable(true);
         addKeyListener(this);
 
-        // Players
-        p1 = new Player(100, 500, 50, 50, Color.RED, true);   // starts as IT
-        p2 = new Player(300, 500, 50, 50, Color.BLUE, false);
+        p1 = new Player(100, 650, 50, 50, Color.RED, true);
+        p2 = new Player(300, 650, 50, 50, Color.BLUE, false);
 
-        // Platforms
         platforms = new ArrayList<>();
-        platforms.add(new Rectangle(0, 700, 1800, 60));      // ground
-        platforms.add(new Rectangle(200, 550, 250, 20));
-        platforms.add(new Rectangle(600, 450, 250, 20));
-        platforms.add(new Rectangle(1000, 350, 250, 20));
-        platforms.add(new Rectangle(1400, 500, 200, 20));
+
+        // Lower platforms
+        platforms.add(new Rectangle(0, 800, 1800, 60)); // ground
+        platforms.add(new Rectangle(200, 700, 250, 20));
+        platforms.add(new Rectangle(600, 650, 250, 20));
+        platforms.add(new Rectangle(1000, 600, 250, 20));
+        platforms.add(new Rectangle(1400, 700, 200, 20));
+
+        tagCooldown = 0;
 
         new Thread(this).start();
     }
@@ -59,11 +62,14 @@ public class Game extends JPanel implements Runnable, KeyListener {
         p1.move(platforms);
         p2.move(platforms);
 
+        if (tagCooldown > 0) {
+            tagCooldown--;
+        }
+
         checkTag();
     }
 
     public void handleInput() {
-        // Player 1: A D W
         p1.vx = 0;
         if (keys[KeyEvent.VK_A]) {
             p1.vx = -5;
@@ -76,7 +82,6 @@ public class Game extends JPanel implements Runnable, KeyListener {
             p1.onGround = false;
         }
 
-        // Player 2: LEFT RIGHT UP
         p2.vx = 0;
         if (keys[KeyEvent.VK_LEFT]) {
             p2.vx = -5;
@@ -94,14 +99,16 @@ public class Game extends JPanel implements Runnable, KeyListener {
         Rectangle r1 = p1.getRect();
         Rectangle r2 = p2.getRect();
 
-        if (r1.intersects(r2)) {
+        if (tagCooldown == 0 && r1.intersects(r2)) {
             if (p1.isIt) {
                 p1.isIt = false;
                 p2.isIt = true;
-            } else if (p2.isIt) {
+            } else {
                 p2.isIt = false;
                 p1.isIt = true;
             }
+
+            tagCooldown = 120; // about 2 seconds
         }
     }
 
@@ -116,21 +123,17 @@ public class Game extends JPanel implements Runnable, KeyListener {
         Graphics g2d = back.createGraphics();
         g2d.clearRect(0, 0, getWidth(), getHeight());
 
-        // Background
         g2d.setColor(new Color(180, 220, 255));
         g2d.fillRect(0, 0, getWidth(), getHeight());
 
-        // Platforms
         g2d.setColor(Color.DARK_GRAY);
         for (Rectangle r : platforms) {
             g2d.fillRect(r.x, r.y, r.width, r.height);
         }
 
-        // Draw players
         p1.draw(g2d);
         p2.draw(g2d);
 
-        // UI text
         g2d.setColor(Color.BLACK);
         g2d.setFont(new Font("Arial", Font.BOLD, 28));
         g2d.drawString("Player 1 (Red): " + (p1.isIt ? "IT" : "Runner"), 40, 40);

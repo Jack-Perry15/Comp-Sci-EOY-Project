@@ -66,10 +66,12 @@ public class Player {
         }
 
         // keep inside screen
-        if (x < 0) x = 0;
-        if (x + width > 1800) x = 1800 - width;
-        if (y > 1600) {
-            y = 500;
+        if (x < 0)
+            x = 0;
+        if (x + width > 1800)
+            x = 1800 - width;
+        if (y > 1000) {
+            y = 650;
             vy = 0;
         }
     }
