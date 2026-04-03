@@ -7,7 +7,7 @@ public class Main extends JFrame {
 	private static final int HEIGHT = 1600;
 
 	public Main() {
-		super("Spacey Ship");
+		super("Comp Sci EOY Project");
 		setSize(WIDTH, HEIGHT);
 		Game play = new Game();
 		((Component) play).setFocusable(true);
