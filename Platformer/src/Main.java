@@ -1,31 +1,26 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 
 public class Main extends JFrame {
-	private static final int WIDTH = 1800;
-	private static final int HEIGHT = 1600;
+    private static final int WIDTH = 1800;
+    private static final int HEIGHT = 900;
 
-	public Main() {
-		super("Comp Sci EOY Project");
-		setSize(WIDTH, HEIGHT);
-		Game play = new Game();
-		((Component) play).setFocusable(true);
+    public Main() {
+        super("Comp Sci EOY Project");
 
-		Color RoyalBlue = new Color(22, 13, 193);
+        setSize(WIDTH, HEIGHT);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		setBackground(RoyalBlue);
+        Game play = new Game();
+        play.setFocusable(true);
 
-		getContentPane().add(play);
+        getContentPane().add(play);
+        setVisible(true);
 
-		setVisible(true);
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        play.requestFocusInWindow();
+    }
 
-	}
-
-	public static void main(String[] args) {
-		Main run = new Main();
-
-	}
-
+    public static void main(String[] args) {
+        new Main();
+    }
 }
