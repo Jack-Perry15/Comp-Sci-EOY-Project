@@ -19,9 +19,12 @@ public class PowerUp {
         } else if (type.equals("jump")) {
             color = Color.MAGENTA;
             duration = 300;
-        } else {
+        } else if (type.equals("freeze")) {
             color = Color.CYAN;
             duration = 180;
+        } else {
+            color = Color.ORANGE; // coyote / wolf time
+            duration = 360;
         }
     }
 
@@ -32,7 +35,12 @@ public class PowerUp {
     public void draw(Graphics g) {
         g.setColor(color);
         g.fillOval(x, y, width, height);
+
         g.setColor(Color.BLACK);
         g.drawOval(x, y, width, height);
+
+        if (type.equals("coyote")) {
+            g.drawString("W", x + 8, y + 18);
+        }
     }
 }

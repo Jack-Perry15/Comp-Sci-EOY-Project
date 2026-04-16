@@ -123,8 +123,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         applyVariableJump(p1);
         applyVariableJump(p2);
 
-        p1.applyGravity(1 * scale, 16);
-        p2.applyGravity(1 * scale, 16);
+        p1.applyGravity(1 * scale, 15);
+        p2.applyGravity(1 * scale, 15);
 
         p1.move(platforms, movingPlatforms, getWorldWidth(), getWorldHeight(), (int)(650 * scale));
         p2.move(platforms, movingPlatforms, getWorldWidth(), getWorldHeight(), (int)(650 * scale));
@@ -140,8 +140,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     }
 
     private void applyVariableJump(Player p) {
-        if (p.jumpHeld && !p.onGround && p.jumpHoldFrames < 20 && p.vy < 0) {
-            p.vy -= 0.45;
+        if (p.jumpHeld && !p.onGround && p.jumpHoldFrames < p.maxJumpHoldFrames && p.vy < 0) {
+            p.vy -= 0.55;
             p.jumpHoldFrames++;
         }
     }
@@ -156,13 +156,20 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
     public void handleInput() {
         int baseSpeed = (int)(5 * scale);
-        int baseJump = (int)(16 * scale);
+        int baseJump = (int)(17 * scale);
 
         p1.vx = 0;
         if (p1.canMove()) {
             int p1Speed = p1.getMoveSpeed(baseSpeed);
-            if (keys[KeyEvent.VK_A]) p1.vx = -p1Speed;
-            if (keys[KeyEvent.VK_D]) p1.vx = p1Speed;
+
+            if (keys[KeyEvent.VK_A]) {
+                p1.vx = -p1Speed;
+                p1.facingRight = false;
+            }
+            if (keys[KeyEvent.VK_D]) {
+                p1.vx = p1Speed;
+                p1.facingRight = true;
+            }
 
             if (keys[KeyEvent.VK_W]) {
                 p1.jumpBufferFrames = 6;
@@ -170,12 +177,12 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
             p1.jumpHeld = keys[KeyEvent.VK_W];
 
-            if (p1.jumpBufferFrames > 0 && (p1.onGround || p1.coyoteFrames > 0)) {
+            if (p1.jumpBufferFrames > 0 && (p1.onGround || p1.canUseCoyoteJump())) {
                 p1.vy = -p1.getJumpPower(baseJump);
                 p1.onGround = false;
-                p1.coyoteFrames = 0;
                 p1.jumpBufferFrames = 0;
                 p1.jumpHoldFrames = 0;
+                p1.coyoteFramesLeft = 0;
                 spawnJumpParticles(p1);
                 SoundPlayer.play("Platformer/jump.wav");
             }
@@ -186,8 +193,15 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         p2.vx = 0;
         if (p2.canMove()) {
             int p2Speed = p2.getMoveSpeed(baseSpeed);
-            if (keys[KeyEvent.VK_LEFT]) p2.vx = -p2Speed;
-            if (keys[KeyEvent.VK_RIGHT]) p2.vx = p2Speed;
+
+            if (keys[KeyEvent.VK_LEFT]) {
+                p2.vx = -p2Speed;
+                p2.facingRight = false;
+            }
+            if (keys[KeyEvent.VK_RIGHT]) {
+                p2.vx = p2Speed;
+                p2.facingRight = true;
+            }
 
             if (keys[KeyEvent.VK_UP]) {
                 p2.jumpBufferFrames = 6;
@@ -195,12 +209,12 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
             p2.jumpHeld = keys[KeyEvent.VK_UP];
 
-            if (p2.jumpBufferFrames > 0 && (p2.onGround || p2.coyoteFrames > 0)) {
+            if (p2.jumpBufferFrames > 0 && (p2.onGround || p2.canUseCoyoteJump())) {
                 p2.vy = -p2.getJumpPower(baseJump);
                 p2.onGround = false;
-                p2.coyoteFrames = 0;
                 p2.jumpBufferFrames = 0;
                 p2.jumpHoldFrames = 0;
+                p2.coyoteFramesLeft = 0;
                 spawnJumpParticles(p2);
                 SoundPlayer.play("Platformer/jump.wav");
             }
@@ -313,7 +327,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     }
 
     private void spawnPowerUp() {
-        String[] types = {"speed", "jump", "freeze"};
+        String[] types = {"speed", "jump", "freeze", "coyote"};
         String type = types[rand.nextInt(types.length)];
 
         if (platforms.size() > 1) {
@@ -347,6 +361,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
             collector.jumpBoostTimer = pu.duration;
         } else if (pu.type.equals("freeze")) {
             opponent.freezeTimer = pu.duration;
+        } else if (pu.type.equals("coyote")) {
+            collector.coyotePowerTimer = pu.duration;
         }
 
         for (int i = 0; i < 12; i++) {
@@ -402,56 +418,29 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     private void buildMaps() {
         maps.clear();
 
-        // MAP 1: CLASSIC ARENA
-        // Balanced chase map with a center route, two side shelves, and upper escapes
-        Map map1 = new Map("Classic Arena");
+        Map map1 = new Map("Classic");
         map1.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-
-        map1.staticPlatforms.add(new Rectangle(160, 690, 260, 20));
-        map1.staticPlatforms.add(new Rectangle(520, 620, 320, 20));
-        map1.staticPlatforms.add(new Rectangle(980, 620, 320, 20));
-        map1.staticPlatforms.add(new Rectangle(1380, 690, 260, 20));
-
-        map1.staticPlatforms.add(new Rectangle(360, 500, 220, 20));
-        map1.staticPlatforms.add(new Rectangle(1220, 500, 220, 20));
-
-        map1.staticPlatforms.add(new Rectangle(760, 420, 280, 20));
+        map1.staticPlatforms.add(new Rectangle(200, 700, 250, 20));
+        map1.staticPlatforms.add(new Rectangle(600, 650, 250, 20));
+        map1.staticPlatforms.add(new Rectangle(1000, 600, 250, 20));
+        map1.staticPlatforms.add(new Rectangle(1400, 700, 200, 20));
         maps.add(map1);
 
-        // MAP 2: TOWER RACE
-        // Strong vertical map with staggered height changes, side recoveries, and top contest area
-        Map map2 = new Map("Tower Race");
+        Map map2 = new Map("Vertical");
         map2.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-
-        map2.staticPlatforms.add(new Rectangle(120, 710, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(340, 630, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(560, 550, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(780, 470, 240, 20));
-        map2.staticPlatforms.add(new Rectangle(1080, 550, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1300, 630, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1520, 710, 180, 20));
-
-        map2.staticPlatforms.add(new Rectangle(560, 340, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1060, 340, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(760, 250, 280, 20));
+        map2.staticPlatforms.add(new Rectangle(250, 720, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(500, 620, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(780, 520, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1080, 420, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1380, 320, 180, 20));
         maps.add(map2);
 
-        // MAP 3: SPLIT PRESSURE
-        // Designed around lane switching and forcing movement across risky moving platforms
-        Map map3 = new Map("Split Pressure");
+        Map map3 = new Map("Moving");
         map3.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-
-        map3.staticPlatforms.add(new Rectangle(120, 660, 260, 20));
-        map3.staticPlatforms.add(new Rectangle(1420, 660, 260, 20));
-
-        map3.staticPlatforms.add(new Rectangle(300, 500, 220, 20));
-        map3.staticPlatforms.add(new Rectangle(1280, 500, 220, 20));
-
-        map3.staticPlatforms.add(new Rectangle(760, 300, 280, 20));
-
-        map3.movingPlatforms.add(new MovingPlatform(560, 650, 180, 20, 260, 3));
-        map3.movingPlatforms.add(new MovingPlatform(1060, 650, 180, 20, -260, 3));
-        map3.movingPlatforms.add(new MovingPlatform(670, 430, 200, 20, 260, 2));
+        map3.staticPlatforms.add(new Rectangle(250, 650, 200, 20));
+        map3.staticPlatforms.add(new Rectangle(1350, 650, 200, 20));
+        map3.movingPlatforms.add(new MovingPlatform(650, 560, 220, 20, 300, 3));
+        map3.movingPlatforms.add(new MovingPlatform(900, 420, 220, 20, -250, 2));
         maps.add(map3);
 
         currentMapIndex = 0;
@@ -533,10 +522,12 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         g.drawRect(40, 300, barWidth, barHeight);
 
         g.drawString("Power-Ups:", 40, 350);
-        g.drawString("Speed = Green, Jump = Pink, Freeze = Cyan", 40, 380);
+        g.drawString("Speed = Green, Jump = Pink, Freeze = Cyan, Wolf = Orange", 40, 380);
 
         if (p1.freezeTimer > 0) g.drawString("P1 FROZEN", 300, 120);
         if (p2.freezeTimer > 0) g.drawString("P2 FROZEN", 300, 155);
+        if (p1.coyotePowerTimer > 0) g.drawString("P1 WOLF TIME", 300, 190);
+        if (p2.coyotePowerTimer > 0) g.drawString("P2 WOLF TIME", 300, 225);
     }
 
     private void drawEndRoundButton(Graphics g) {
@@ -619,6 +610,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
             p2.tagsThisRound = oldP2.tagsThisRound;
             p1.isIt = oldP1.isIt;
             p2.isIt = oldP2.isIt;
+            p1.facingRight = oldP1.facingRight;
+            p2.facingRight = oldP2.facingRight;
         }
 
         p1.onGround = true;
@@ -636,13 +629,14 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
         movingPlatforms = new ArrayList<>();
         for (MovingPlatform mp : map.movingPlatforms) {
+            int moveDistance = mp.maxX - mp.minX;
             movingPlatforms.add(new MovingPlatform(
-                    (int)(mp.x * scale),
-                    (int)(mp.y * scale),
-                    (int)(mp.width * scale),
-                    (int)(mp.height * scale),
-                    (int)((mp.endX - mp.startX) * scale),
-                    Math.max(1, (int)(mp.speed * scale))
+                    mp.x,
+                    mp.y,
+                    mp.width,
+                    mp.height,
+                    moveDistance,
+                    mp.speed
             ));
         }
 
@@ -664,20 +658,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         requestFocusInWindow();
     }
 
-    @Override 
-    public void mouseReleased(MouseEvent e) {
-
-    }
-    @Override 
-    public void mouseClicked(MouseEvent e) {
-
-    }
-    @Override 
-    public void mouseEntered(MouseEvent e) {
-
-    }
-    @Override 
-    public void mouseExited(MouseEvent e) {
-        
-    }
+    @Override public void mouseReleased(MouseEvent e) {}
+    @Override public void mouseClicked(MouseEvent e) {}
+    @Override public void mouseEntered(MouseEvent e) {}
+    @Override public void mouseExited(MouseEvent e) {}
 }

@@ -3,19 +3,21 @@ import java.util.ArrayList;
 
 public class Player {
     int x, y, width, height;
-    int vx, vy;
+    double vx, vy;
 
     boolean onGround;
     boolean isIt;
+    boolean facingRight;
 
     Color color;
 
-    int coyoteFrames;
     int jumpBufferFrames;
 
     int speedBoostTimer;
     int jumpBoostTimer;
     int freezeTimer;
+    int coyotePowerTimer;
+    int coyoteFramesLeft;
 
     int tagsThisRound;
     int roundsWon;
@@ -36,13 +38,15 @@ public class Player {
         vx = 0;
         vy = 0;
         onGround = false;
+        facingRight = true;
 
-        coyoteFrames = 0;
         jumpBufferFrames = 0;
 
         speedBoostTimer = 0;
         jumpBoostTimer = 0;
         freezeTimer = 0;
+        coyotePowerTimer = 0;
+        coyoteFramesLeft = 0;
 
         tagsThisRound = 0;
         roundsWon = 0;
@@ -50,7 +54,7 @@ public class Player {
 
         jumpHeld = false;
         jumpHoldFrames = 0;
-        maxJumpHoldFrames = 42; // about 0.7 sec at 60 FPS
+        maxJumpHoldFrames = 18;
     }
 
     public void applyGravity(double gravity, int maxVy) {
@@ -61,12 +65,14 @@ public class Player {
     }
 
     public void updateTimers() {
-        if (coyoteFrames > 0) coyoteFrames--;
         if (jumpBufferFrames > 0) jumpBufferFrames--;
 
         if (speedBoostTimer > 0) speedBoostTimer--;
         if (jumpBoostTimer > 0) jumpBoostTimer--;
         if (freezeTimer > 0) freezeTimer--;
+        if (coyotePowerTimer > 0) coyotePowerTimer--;
+
+        if (coyoteFramesLeft > 0) coyoteFramesLeft--;
     }
 
     public boolean canMove() {
@@ -79,12 +85,16 @@ public class Player {
     }
 
     public int getJumpPower(int baseJump) {
-        if (jumpBoostTimer > 0) return baseJump + 4;
+        if (jumpBoostTimer > 0) return baseJump + 3;
         return baseJump;
     }
 
+    public boolean canUseCoyoteJump() {
+        return coyotePowerTimer > 0 && coyoteFramesLeft > 0;
+    }
+
     public void move(ArrayList<Rectangle> platforms, ArrayList<MovingPlatform> movingPlatforms, int worldWidth, int worldHeight, int respawnY) {
-        x += vx;
+        x += (int)Math.round(vx);
         Rectangle playerRect = getRect();
 
         for (Rectangle platform : platforms) {
@@ -110,8 +120,9 @@ public class Player {
             }
         }
 
-        y += vy;
         boolean wasOnGround = onGround;
+
+        y += (int)Math.round(vy);
         onGround = false;
         playerRect = getRect();
 
@@ -136,7 +147,7 @@ public class Player {
                     y = r.y - height;
                     vy = 0;
                     onGround = true;
-                    x += platform.speed * platform.dir;
+                    x += platform.getDx();
                 } else if (vy < 0) {
                     y = r.y + r.height;
                     vy = 0;
@@ -145,11 +156,18 @@ public class Player {
             }
         }
 
+        if (coyotePowerTimer > 0) {
+            if (onGround) {
+                coyoteFramesLeft = 6;
+            } else if (wasOnGround) {
+                coyoteFramesLeft = 6;
+            }
+        } else {
+            coyoteFramesLeft = 0;
+        }
+
         if (onGround) {
-            coyoteFrames = 6;
             jumpHoldFrames = 0;
-        } else if (wasOnGround) {
-            coyoteFrames = 6;
         }
 
         if (x < 0) x = 0;
@@ -160,6 +178,7 @@ public class Player {
             vy = 0;
             jumpHoldFrames = 0;
             jumpHeld = false;
+            coyoteFramesLeft = 0;
         }
     }
 
@@ -171,6 +190,8 @@ public class Player {
         g.setColor(color);
         g.fillRect(x, y, width, height);
 
+        drawFace(g);
+
         if (isIt) {
             g.setColor(Color.YELLOW);
             int border1 = 3;
@@ -179,6 +200,43 @@ public class Player {
         }
 
         drawCrownStack(g);
+    }
+
+    private void drawFace(Graphics g) {
+        g.setColor(Color.BLACK);
+
+        double maxVisualSpeedX = 8.0;
+        double maxVisualSpeedY = 12.0;
+
+        double normalizedX = Math.max(-1, Math.min(1, vx / maxVisualSpeedX));
+        double normalizedY = Math.max(-1, Math.min(1, vy / maxVisualSpeedY));
+
+        int maxShiftX = width / 4;
+        int maxShiftY = height / 4;
+
+        int shiftX = (int)Math.round(normalizedX * maxShiftX);
+        int shiftY = (int)Math.round(normalizedY * maxShiftY);
+
+        int faceCenterX = x + width / 2 + shiftX;
+        int faceCenterY = y + height / 2 + shiftY;
+
+        int eyeSize = Math.max(4, width / 10);
+        int eyeSpacing = width / 6;
+
+        int leftEyeX = faceCenterX - eyeSpacing - eyeSize / 2;
+        int rightEyeX = faceCenterX + eyeSpacing - eyeSize / 2;
+        int eyeY = faceCenterY - height / 8;
+
+        g.fillOval(leftEyeX, eyeY, eyeSize, eyeSize);
+        g.fillOval(rightEyeX, eyeY, eyeSize, eyeSize);
+
+        Graphics2D g2 = (Graphics2D) g;
+        int mouthWidth = width / 4;
+        int mouthHeight = height / 7;
+        int mouthX = faceCenterX - mouthWidth / 2;
+        int mouthY = faceCenterY + height / 14;
+
+        g2.drawArc(mouthX, mouthY, mouthWidth, mouthHeight, 200, 140);
     }
 
     private void drawCrownStack(Graphics g) {
