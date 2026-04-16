@@ -1,5 +1,5 @@
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 
 public class Main extends JFrame {
     private static final int WIDTH = 1800;
@@ -8,16 +8,19 @@ public class Main extends JFrame {
     public Main() {
         super("Comp Sci EOY Project");
 
-        setSize(WIDTH, HEIGHT);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setResizable(true);
 
         Game play = new Game();
+        play.setPreferredSize(new Dimension(WIDTH, HEIGHT));
         play.setFocusable(true);
 
         getContentPane().add(play);
+        pack();
+        setLocationRelativeTo(null);
         setVisible(true);
 
-        play.requestFocusInWindow();
+        SwingUtilities.invokeLater(play::requestFocusInWindow);
     }
 
     public static void main(String[] args) {
