@@ -21,6 +21,10 @@ public class Player {
     int roundsWon;
     int winStreak;
 
+    boolean jumpHeld;
+    int jumpHoldFrames;
+    int maxJumpHoldFrames;
+
     public Player(int x, int y, int width, int height, Color color, boolean isIt) {
         this.x = x;
         this.y = y;
@@ -43,6 +47,10 @@ public class Player {
         tagsThisRound = 0;
         roundsWon = 0;
         winStreak = 0;
+
+        jumpHeld = false;
+        jumpHoldFrames = 0;
+        maxJumpHoldFrames = 42; // about 0.7 sec at 60 FPS
     }
 
     public void applyGravity(double gravity, int maxVy) {
@@ -139,6 +147,7 @@ public class Player {
 
         if (onGround) {
             coyoteFrames = 6;
+            jumpHoldFrames = 0;
         } else if (wasOnGround) {
             coyoteFrames = 6;
         }
@@ -149,6 +158,8 @@ public class Player {
         if (y > worldHeight) {
             y = respawnY;
             vy = 0;
+            jumpHoldFrames = 0;
+            jumpHeld = false;
         }
     }
 
@@ -173,19 +184,39 @@ public class Player {
     private void drawCrownStack(Graphics g) {
         if (winStreak <= 0) return;
 
-        int crownWidth = width;
-        int crownHeight = 10;
         int startY = y - 14;
 
         for (int i = 0; i < winStreak; i++) {
             int crownY = startY - i * 12;
+
+            int[] xs = {
+                x,
+                x + width / 6,
+                x + width / 3,
+                x + width / 2,
+                x + (2 * width) / 3,
+                x + (5 * width) / 6,
+                x + width
+            };
+
+            int[] ys = {
+                crownY + 10,
+                crownY,
+                crownY + 10,
+                crownY - 2,
+                crownY + 10,
+                crownY,
+                crownY + 10
+            };
+
             g.setColor(new Color(255, 215, 0));
-            int[] xs = {x, x + 8, x + width / 2, x + width - 8, x + width};
-            int[] ys = {crownY + crownHeight, crownY, crownY + crownHeight, crownY, crownY + crownHeight};
-            g.fillPolygon(xs, ys, 5);
+            g.fillPolygon(xs, ys, 7);
 
             g.setColor(Color.BLACK);
-            g.drawPolygon(xs, ys, 5);
+            g.drawPolygon(xs, ys, 7);
+
+            g.setColor(new Color(255, 235, 120));
+            g.fillOval(x + width / 2 - 2, crownY + 1, 5, 5);
         }
     }
 }

@@ -8,10 +8,10 @@ import java.util.Random;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
-public class Game extends JPanel implements Runnable, KeyListener, ComponentListener {
+public class Game extends JPanel implements Runnable, KeyListener, ComponentListener, MouseListener {
 
     private BufferedImage back;
-    private BufferedImage bg;
+    private BufferedImage[] backgrounds;
     private boolean[] keys;
 
     private Player p1;
@@ -33,6 +33,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
     private int powerUpSpawnTimer;
 
+    private Rectangle endRoundButton;
+
     public static double scale = 1.0;
     private final int ORIG_WIDTH = 1800;
     private final int ORIG_HEIGHT = 900;
@@ -46,6 +48,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         setFocusable(true);
         addKeyListener(this);
         addComponentListener(this);
+        addMouseListener(this);
 
         scale = 1.0;
 
@@ -59,18 +62,37 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         maxRounds = 5;
         powerUpSpawnTimer = 300;
 
+        endRoundButton = new Rectangle(1600, 40, 160, 50);
+
+        loadBackgrounds();
         buildMaps();
         rebuildGameElements();
 
         tagCooldown = 0;
 
+        new Thread(this).start();
+    }
+
+    private void loadBackgrounds() {
+        backgrounds = new BufferedImage[3];
+
         try {
-            bg = ImageIO.read(new File("Platformer/Background.jpg"));
+            backgrounds[0] = ImageIO.read(new File("Platformer/background.jpg"));
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Could not load background.jpg");
         }
 
-        new Thread(this).start();
+        try {
+            backgrounds[1] = ImageIO.read(new File("Platformer/background2.jpg"));
+        } catch (IOException e) {
+            System.out.println("Could not load background2.jpg");
+        }
+
+        try {
+            backgrounds[2] = ImageIO.read(new File("Platformer/background3.jpg"));
+        } catch (IOException e) {
+            System.out.println("Could not load background3.jpg");
+        }
     }
 
     @Override
@@ -98,8 +120,11 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         p1.updateTimers();
         p2.updateTimers();
 
-        p1.applyGravity(1 * scale, 15);
-        p2.applyGravity(1 * scale, 15);
+        applyVariableJump(p1);
+        applyVariableJump(p2);
+
+        p1.applyGravity(1 * scale, 16);
+        p2.applyGravity(1 * scale, 16);
 
         p1.move(platforms, movingPlatforms, getWorldWidth(), getWorldHeight(), (int)(650 * scale));
         p2.move(platforms, movingPlatforms, getWorldWidth(), getWorldHeight(), (int)(650 * scale));
@@ -114,6 +139,13 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         updateRoundTimer();
     }
 
+    private void applyVariableJump(Player p) {
+        if (p.jumpHeld && !p.onGround && p.jumpHoldFrames < 20 && p.vy < 0) {
+            p.vy -= 0.45;
+            p.jumpHoldFrames++;
+        }
+    }
+
     private int getWorldWidth() {
         return (int)(ORIG_WIDTH * scale);
     }
@@ -124,7 +156,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
     public void handleInput() {
         int baseSpeed = (int)(5 * scale);
-        int baseJump = (int)(14 * scale);
+        int baseJump = (int)(16 * scale);
 
         p1.vx = 0;
         if (p1.canMove()) {
@@ -136,14 +168,19 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
                 p1.jumpBufferFrames = 6;
             }
 
+            p1.jumpHeld = keys[KeyEvent.VK_W];
+
             if (p1.jumpBufferFrames > 0 && (p1.onGround || p1.coyoteFrames > 0)) {
                 p1.vy = -p1.getJumpPower(baseJump);
                 p1.onGround = false;
                 p1.coyoteFrames = 0;
                 p1.jumpBufferFrames = 0;
+                p1.jumpHoldFrames = 0;
                 spawnJumpParticles(p1);
-                SoundPlayer.play("jump.wav");
+                SoundPlayer.play("Platformer/jump.wav");
             }
+        } else {
+            p1.jumpHeld = false;
         }
 
         p2.vx = 0;
@@ -156,14 +193,26 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
                 p2.jumpBufferFrames = 6;
             }
 
+            p2.jumpHeld = keys[KeyEvent.VK_UP];
+
             if (p2.jumpBufferFrames > 0 && (p2.onGround || p2.coyoteFrames > 0)) {
                 p2.vy = -p2.getJumpPower(baseJump);
                 p2.onGround = false;
                 p2.coyoteFrames = 0;
                 p2.jumpBufferFrames = 0;
+                p2.jumpHoldFrames = 0;
                 spawnJumpParticles(p2);
-                SoundPlayer.play("jump.wav");
+                SoundPlayer.play("Platformer/jump.wav");
             }
+        } else {
+            p2.jumpHeld = false;
+        }
+
+        if (!keys[KeyEvent.VK_W]) {
+            p1.jumpHeld = false;
+        }
+        if (!keys[KeyEvent.VK_UP]) {
+            p2.jumpHeld = false;
         }
     }
 
@@ -173,7 +222,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
         if (tagCooldown == 0 && r1.intersects(r2)) {
             spawnTagParticles((p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
-            SoundPlayer.play("tag.wav");
+            SoundPlayer.play("Platformer/tag.wav");
 
             if (p1.isIt) {
                 p1.isIt = false;
@@ -281,11 +330,11 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
             if (p1.getRect().intersects(pu.getRect())) {
                 applyPowerUp(p1, p2, pu);
-                SoundPlayer.play("powerup.wav");
+                SoundPlayer.play("Platformer/powerup.wav");
                 powerUps.remove(i);
             } else if (p2.getRect().intersects(pu.getRect())) {
                 applyPowerUp(p2, p1, pu);
-                SoundPlayer.play("powerup.wav");
+                SoundPlayer.play("Platformer/powerup.wav");
                 powerUps.remove(i);
             }
         }
@@ -353,29 +402,56 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     private void buildMaps() {
         maps.clear();
 
-        Map map1 = new Map("Classic");
+        // MAP 1: CLASSIC ARENA
+        // Balanced chase map with a center route, two side shelves, and upper escapes
+        Map map1 = new Map("Classic Arena");
         map1.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map1.staticPlatforms.add(new Rectangle(200, 700, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(600, 650, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(1000, 600, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(1400, 700, 200, 20));
+
+        map1.staticPlatforms.add(new Rectangle(160, 690, 260, 20));
+        map1.staticPlatforms.add(new Rectangle(520, 620, 320, 20));
+        map1.staticPlatforms.add(new Rectangle(980, 620, 320, 20));
+        map1.staticPlatforms.add(new Rectangle(1380, 690, 260, 20));
+
+        map1.staticPlatforms.add(new Rectangle(360, 500, 220, 20));
+        map1.staticPlatforms.add(new Rectangle(1220, 500, 220, 20));
+
+        map1.staticPlatforms.add(new Rectangle(760, 420, 280, 20));
         maps.add(map1);
 
-        Map map2 = new Map("Vertical");
+        // MAP 2: TOWER RACE
+        // Strong vertical map with staggered height changes, side recoveries, and top contest area
+        Map map2 = new Map("Tower Race");
         map2.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map2.staticPlatforms.add(new Rectangle(250, 720, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(500, 620, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(780, 520, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1080, 420, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1380, 320, 180, 20));
+
+        map2.staticPlatforms.add(new Rectangle(120, 710, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(340, 630, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(560, 550, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(780, 470, 240, 20));
+        map2.staticPlatforms.add(new Rectangle(1080, 550, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1300, 630, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1520, 710, 180, 20));
+
+        map2.staticPlatforms.add(new Rectangle(560, 340, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1060, 340, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(760, 250, 280, 20));
         maps.add(map2);
 
-        Map map3 = new Map("Moving");
+        // MAP 3: SPLIT PRESSURE
+        // Designed around lane switching and forcing movement across risky moving platforms
+        Map map3 = new Map("Split Pressure");
         map3.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map3.staticPlatforms.add(new Rectangle(250, 650, 200, 20));
-        map3.staticPlatforms.add(new Rectangle(1350, 650, 200, 20));
-        map3.movingPlatforms.add(new MovingPlatform(650, 560, 220, 20, 300, 3));
-        map3.movingPlatforms.add(new MovingPlatform(900, 420, 220, 20, -250, 2));
+
+        map3.staticPlatforms.add(new Rectangle(120, 660, 260, 20));
+        map3.staticPlatforms.add(new Rectangle(1420, 660, 260, 20));
+
+        map3.staticPlatforms.add(new Rectangle(300, 500, 220, 20));
+        map3.staticPlatforms.add(new Rectangle(1280, 500, 220, 20));
+
+        map3.staticPlatforms.add(new Rectangle(760, 300, 280, 20));
+
+        map3.movingPlatforms.add(new MovingPlatform(560, 650, 180, 20, 260, 3));
+        map3.movingPlatforms.add(new MovingPlatform(1060, 650, 180, 20, -260, 3));
+        map3.movingPlatforms.add(new MovingPlatform(670, 430, 200, 20, 260, 2));
         maps.add(map3);
 
         currentMapIndex = 0;
@@ -392,8 +468,13 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         Graphics g2d = back.createGraphics();
         g2d.clearRect(0, 0, getWidth(), getHeight());
 
-        if (bg != null) {
-            g2d.drawImage(bg, 0, 0, getWidth(), getHeight(), null);
+        BufferedImage currentBg = null;
+        if (backgrounds != null && currentMapIndex >= 0 && currentMapIndex < backgrounds.length) {
+            currentBg = backgrounds[currentMapIndex];
+        }
+
+        if (currentBg != null) {
+            g2d.drawImage(currentBg, 0, 0, getWidth(), getHeight(), null);
         } else {
             g2d.setColor(new Color(180, 220, 255));
             g2d.fillRect(0, 0, getWidth(), getHeight());
@@ -420,6 +501,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         p2.draw(g2d);
 
         drawUI(g2d);
+        drawEndRoundButton(g2d);
 
         twoDgraph.drawImage(back, null, 0, 0);
     }
@@ -455,6 +537,31 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
         if (p1.freezeTimer > 0) g.drawString("P1 FROZEN", 300, 120);
         if (p2.freezeTimer > 0) g.drawString("P2 FROZEN", 300, 155);
+    }
+
+    private void drawEndRoundButton(Graphics g) {
+        Point mouse = getMousePosition();
+
+        if (mouse != null && endRoundButton.contains(mouse)) {
+            g.setColor(new Color(200, 0, 0));
+        } else {
+            g.setColor(Color.RED);
+        }
+
+        g.fillRect(endRoundButton.x, endRoundButton.y, endRoundButton.width, endRoundButton.height);
+
+        g.setColor(Color.BLACK);
+        g.drawRect(endRoundButton.x, endRoundButton.y, endRoundButton.width, endRoundButton.height);
+
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+
+        FontMetrics fm = g.getFontMetrics();
+        String text = "END ROUND";
+        int textX = endRoundButton.x + (endRoundButton.width - fm.stringWidth(text)) / 2;
+        int textY = endRoundButton.y + (endRoundButton.height + fm.getAscent()) / 2 - 4;
+
+        g.drawString(text, textX, textY);
     }
 
     @Override
@@ -543,5 +650,34 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
             p1.isIt = true;
             p2.isIt = false;
         }
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+        int mx = e.getX();
+        int my = e.getY();
+
+        if (endRoundButton.contains(mx, my)) {
+            endRound();
+        }
+
+        requestFocusInWindow();
+    }
+
+    @Override 
+    public void mouseReleased(MouseEvent e) {
+
+    }
+    @Override 
+    public void mouseClicked(MouseEvent e) {
+
+    }
+    @Override 
+    public void mouseEntered(MouseEvent e) {
+
+    }
+    @Override 
+    public void mouseExited(MouseEvent e) {
+        
     }
 }
