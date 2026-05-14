@@ -33,6 +33,11 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
     private int powerUpSpawnTimer;
 
+    // Match end screen state
+    private boolean matchOver;
+    private Rectangle restartMatchButton;
+
+
     private Rectangle endRoundButton;
 
     public static double scale = 1.0;
@@ -63,6 +68,8 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         powerUpSpawnTimer = 300;
 
         endRoundButton = new Rectangle(1600, 40, 160, 50);
+        restartMatchButton = new Rectangle(700, 520, 400, 80);
+        matchOver = false;
 
         loadBackgrounds();
         buildMaps();
@@ -114,11 +121,14 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     }
 
     public void updateGame() {
+        if (matchOver) return;
+
         updateMovingPlatforms();
         handleInput();
 
         p1.updateTimers();
         p2.updateTimers();
+
 
         applyVariableJump(p1);
         applyVariableJump(p2);
@@ -263,6 +273,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         Player winner;
         Player loser;
 
+
         if (p1.tagsThisRound > p2.tagsThisRound) {
             winner = p1;
             loser = p2;
@@ -286,12 +297,18 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         roundNumber++;
 
         if (roundNumber > maxRounds) {
-            resetMatch();
+            matchOver = true;
+            p1.vx = 0;
+            p1.vy = 0;
+            p2.vx = 0;
+            p2.vy = 0;
             return;
         }
 
+
         resetRound();
     }
+
 
     private void resetRound() {
         roundTimer = roundLength;
@@ -301,18 +318,79 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         rebuildGameElements();
         p1.tagsThisRound = 0;
         p2.tagsThisRound = 0;
+
+        // Ensure restart overlays/buttons aren't interactive during rounds
+        matchOver = false;
     }
+
 
     private void resetMatch() {
         p1.roundsWon = 0;
         p2.roundsWon = 0;
         p1.winStreak = 0;
         p2.winStreak = 0;
+        p1.tagsThisRound = 0;
+        p2.tagsThisRound = 0;
         roundNumber = 1;
+        currentMapIndex = 0;
+        roundTimer = roundLength;
+        rebuildGameElements();
         resetRound();
     }
 
+
+    private void drawMatchOverScreen(Graphics g) {
+        // Dark overlay
+        g.setColor(new Color(0, 0, 0, 140));
+        g.fillRect(0, 0, getWorldWidth(), getWorldHeight());
+
+        String p1Text = "P1 Wins: " + p1.roundsWon;
+        String p2Text = "P2 Wins: " + p2.roundsWon;
+
+        String resultText;
+        if (p1.roundsWon > p2.roundsWon) {
+            resultText = "P1 WINS!";
+        } else if (p2.roundsWon > p1.roundsWon) {
+            resultText = "P2 WINS!";
+        } else {
+            resultText = "DRAW!";
+        }
+
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, (int)(54 * scale)));
+        g.drawString("MATCH RESULTS", (int)(520 * scale), (int)(240 * scale));
+
+        g.setFont(new Font("Arial", Font.BOLD, (int)(44 * scale)));
+        g.drawString(resultText, (int)(650 * scale), (int)(340 * scale));
+
+        g.setFont(new Font("Arial", Font.PLAIN, (int)(34 * scale)));
+        g.drawString(p1Text, (int)(520 * scale), (int)(420 * scale));
+        g.drawString(p2Text, (int)(520 * scale), (int)(465 * scale));
+
+        // Restart button
+        if (restartMatchButton != null) {
+            Point mouse = getMousePosition();
+            if (mouse != null && restartMatchButton.contains(mouse)) {
+                g.setColor(new Color(0, 180, 0));
+            } else {
+                g.setColor(new Color(0, 120, 0));
+            }
+            g.fillRect(restartMatchButton.x, restartMatchButton.y, restartMatchButton.width, restartMatchButton.height);
+            g.setColor(Color.BLACK);
+            g.drawRect(restartMatchButton.x, restartMatchButton.y, restartMatchButton.width, restartMatchButton.height);
+
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, (int)(26 * scale)));
+            String restartText = "RESTART MATCH (R / CLICK)";
+            FontMetrics fm = g.getFontMetrics();
+            int textX = restartMatchButton.x + (restartMatchButton.width - fm.stringWidth(restartText)) / 2;
+            int textY = restartMatchButton.y + (restartMatchButton.height + fm.getAscent()) / 2 - 6;
+            g.drawString(restartText, textX, textY);
+        }
+    }
+
     private void updateMovingPlatforms() {
+
         for (MovingPlatform mp : movingPlatforms) {
             mp.update();
         }
@@ -418,29 +496,98 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     private void buildMaps() {
         maps.clear();
 
+        // ── MAP 1: Classic ──────────────────────────────────────────────
         Map map1 = new Map("Classic");
+        // Ground
         map1.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map1.staticPlatforms.add(new Rectangle(200, 700, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(600, 650, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(1000, 600, 250, 20));
-        map1.staticPlatforms.add(new Rectangle(1400, 700, 200, 20));
+
+        // Level 1 – low side ledges (mirrored around x=900)
+        map1.staticPlatforms.add(new Rectangle(100,  700, 220, 20));
+        map1.staticPlatforms.add(new Rectangle(1480, 700, 220, 20));
+
+        // Level 2
+        map1.staticPlatforms.add(new Rectangle(360, 620, 220, 20));
+        map1.staticPlatforms.add(new Rectangle(1220, 620, 220, 20));
+
+        // Level 3 – center flanking
+        map1.staticPlatforms.add(new Rectangle(620, 540, 200, 20));
+        map1.staticPlatforms.add(new Rectangle(980, 540, 200, 20));
+
+        // Level 4 – upper side
+        map1.staticPlatforms.add(new Rectangle(300, 460, 200, 20));
+        map1.staticPlatforms.add(new Rectangle(1300, 460, 200, 20));
+
+        // Level 5 – near-top center pair
+        map1.staticPlatforms.add(new Rectangle(680, 380, 180, 20));
+        map1.staticPlatforms.add(new Rectangle(940, 380, 180, 20));
+
+        // Top center connector
+        map1.staticPlatforms.add(new Rectangle(780, 250, 240, 20));
+
         maps.add(map1);
 
+        // ── MAP 2: Vertical ─────────────────────────────────────────────
         Map map2 = new Map("Vertical");
+        // Ground
         map2.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map2.staticPlatforms.add(new Rectangle(250, 720, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(500, 620, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(780, 520, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1080, 420, 180, 20));
-        map2.staticPlatforms.add(new Rectangle(1380, 320, 180, 20));
+
+        // Outer low steps
+        map2.staticPlatforms.add(new Rectangle(80,   730, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1540, 730, 180, 20));
+
+        // Step inward + up
+        map2.staticPlatforms.add(new Rectangle(280, 660, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1340, 660, 180, 20));
+
+        map2.staticPlatforms.add(new Rectangle(480, 580, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1140, 580, 180, 20));
+
+        // Inner mid platforms
+        map2.staticPlatforms.add(new Rectangle(660, 500, 200, 20));
+        map2.staticPlatforms.add(new Rectangle(940, 500, 200, 20));
+
+        // Step back outward going up
+        map2.staticPlatforms.add(new Rectangle(480, 420, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1140, 420, 180, 20));
+
+        map2.staticPlatforms.add(new Rectangle(280, 340, 180, 20));
+        map2.staticPlatforms.add(new Rectangle(1340, 340, 180, 20));
+
+        // Top center
+        map2.staticPlatforms.add(new Rectangle(760, 260, 280, 20));
+
         maps.add(map2);
 
+        // ── MAP 3: Moving ───────────────────────────────────────────────
         Map map3 = new Map("Moving");
+        // Ground
         map3.staticPlatforms.add(new Rectangle(0, 800, 1800, 60));
-        map3.staticPlatforms.add(new Rectangle(250, 650, 200, 20));
-        map3.staticPlatforms.add(new Rectangle(1350, 650, 200, 20));
-        map3.movingPlatforms.add(new MovingPlatform(650, 560, 220, 20, 300, 3));
-        map3.movingPlatforms.add(new MovingPlatform(900, 420, 220, 20, -250, 2));
+
+        // Static anchors – symmetric
+        map3.staticPlatforms.add(new Rectangle(100,  700, 220, 20));
+        map3.staticPlatforms.add(new Rectangle(1480, 700, 220, 20));
+
+        map3.staticPlatforms.add(new Rectangle(380,  580, 200, 20));
+        map3.staticPlatforms.add(new Rectangle(1220, 580, 200, 20));
+
+        // Wide center base
+        map3.staticPlatforms.add(new Rectangle(700, 460, 400, 20));
+
+        // Moving platforms – paired and mirrored
+        map3.movingPlatforms.add(new MovingPlatform(580,  640, 180, 20,  140, 2));
+        map3.movingPlatforms.add(new MovingPlatform(1040, 640, 180, 20, -140, 2));
+
+        map3.movingPlatforms.add(new MovingPlatform(580,  380, 180, 20,  -300, 2));
+        map3.movingPlatforms.add(new MovingPlatform(1040, 380, 180, 20, 300, 2));
+
+        // Static platforms - symmetric 
+
+        map3.staticPlatforms.add(new Rectangle(60,330,180,20));
+        map3.staticPlatforms.add(new Rectangle(1560,330,180,20));
+
+        // Center top mover
+        map3.movingPlatforms.add(new MovingPlatform(720, 280, 180, 20, 200, 1));
+
         maps.add(map3);
 
         currentMapIndex = 0;
@@ -456,6 +603,13 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
         Graphics g2d = back.createGraphics();
         g2d.clearRect(0, 0, getWidth(), getHeight());
+
+        if (matchOver) {
+            drawMatchOverScreen(g2d);
+            twoDgraph.drawImage(back, null, 0, 0);
+            return;
+        }
+
 
         BufferedImage currentBg = null;
         if (backgrounds != null && currentMapIndex >= 0 && currentMapIndex < backgrounds.length) {
@@ -531,6 +685,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
     }
 
     private void drawEndRoundButton(Graphics g) {
+        if (matchOver) return;
         Point mouse = getMousePosition();
 
         if (mouse != null && endRoundButton.contains(mouse)) {
@@ -564,7 +719,13 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         if (code < keys.length) {
             keys[code] = true;
         }
+
+        if (matchOver && (code == KeyEvent.VK_R)) {
+            resetMatch();
+            matchOver = false;
+        }
     }
+
 
     @Override
     public void keyReleased(KeyEvent e) {
@@ -629,7 +790,7 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
 
         movingPlatforms = new ArrayList<>();
         for (MovingPlatform mp : map.movingPlatforms) {
-            int moveDistance = mp.maxX - mp.minX;
+            int moveDistance = mp.dir < 0 ? -(mp.maxX - mp.minX) : (mp.maxX - mp.minX);
             movingPlatforms.add(new MovingPlatform(
                     mp.x,
                     mp.y,
@@ -651,12 +812,22 @@ public class Game extends JPanel implements Runnable, KeyListener, ComponentList
         int mx = e.getX();
         int my = e.getY();
 
+        if (matchOver) {
+            if (restartMatchButton != null && restartMatchButton.contains(mx, my)) {
+                resetMatch();
+                matchOver = false;
+            }
+            requestFocusInWindow();
+            return;
+        }
+
         if (endRoundButton.contains(mx, my)) {
             endRound();
         }
 
         requestFocusInWindow();
     }
+
 
     @Override public void mouseReleased(MouseEvent e) {}
     @Override public void mouseClicked(MouseEvent e) {}

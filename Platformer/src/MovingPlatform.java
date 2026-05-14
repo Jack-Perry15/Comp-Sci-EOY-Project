@@ -4,7 +4,7 @@ public class MovingPlatform {
     int x, y, width, height;
     int minX, maxX;
     int speed;
-    int dir = 1;
+    public int dir = 1;
     private int dx = 0;
 
     public MovingPlatform(int x, int y, int width, int height, int moveDistance, int speed) {
@@ -18,25 +18,27 @@ public class MovingPlatform {
         minX = Math.min(x, endX);
         maxX = Math.max(x, endX);
 
-        if (endX < x) {
-            dir = -1;
-        }
+    if (moveDistance < 0) {
+           dir = -1;
+    } else {
+           dir = 1;
     }
+}
 
-    public void update() {
-        dx = speed * dir;
-        x += dx;
+  public void update() {
+    dx = speed * dir;
+    x += dx;
 
-        if (x <= minX) {
-            x = minX;
-            dir = 1;
-            dx = 0;
-        } else if (x >= maxX) {
-            x = maxX;
-            dir = -1;
-            dx = 0;
-        }
+    if (x <= minX) {
+        x = minX;
+        dir = 1;
+        dx = 0;
+    } else if (x >= maxX) {
+        x = maxX;
+        dir = -1;
+        dx = 0;
     }
+}
 
     public int getDx() {
         return dx;

@@ -54,7 +54,7 @@ public class Player {
 
         jumpHeld = false;
         jumpHoldFrames = 0;
-        maxJumpHoldFrames = 18;
+        maxJumpHoldFrames = 4;
     }
 
     public void applyGravity(double gravity, int maxVy) {
